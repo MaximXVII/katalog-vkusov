@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+// Tag.category - obychnaya stroka, znachenie sovpadaet s TagCategoryGroup.slug
+
+// ============================================================
+// Modeli
+// ============================================================
+
+model Recipe {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  description String
+  imageUrl    String     @default("")
+
+  prepTime    Int        @default(0)
+  cookTime    Int        @default(0)
+  difficulty  Difficulty @default(easy)
+
+  ingredients Json       @default("[]")
+  steps       Json       @default("[]")
+
+  published   Boolean    @default(false)
+  isOriginal  Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tags        RecipeTag[]
+
+  @@index([slug])
+  @@index([published, createdAt(sort: Desc)])
+}
+
+model Tag {
+  id       String @id @default(cuid())
+  slug     String @unique
+  name     String
+  category String
+  imageUrl String @default("")
+
+  recipes  RecipeTag[]
+
+  @@index([category])
+  @@index([slug])
+}
+
+model RecipeTag {
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId    String
+
+  @@id([recipeId, tagId])
+  @@index([recipeId])
+  @@index([tagId])
+}
+
+model TagCategoryGroup {
+  id           String  @id @default(cuid())
+  name         String
+  slug         String  @unique
+  displayOrder Int     @default(0)
+  icon         String?
+
+  @@index([slug])
+}

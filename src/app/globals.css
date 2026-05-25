@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  /* Скрыть полосу прокрутки, но оставить функциональность */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Плавное горизонтальное перелистывание на мобиле */
+  .snap-x-mandatory {
+    scroll-snap-type: x mandatory;
+  }
+  .snap-start {
+    scroll-snap-align: start;
+  }
+}
+
+/* ── Print styles ─────────────────────────────────────────── */
+@media print {
+  /* Скрыть интерфейс */
+  nav,
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Убрать тени, скруглить чуть меньше */
+  * {
+    box-shadow: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Ссылки без подчёркивания при печати */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  /* Разрыв страниц */
+  article {
+    padding: 0 !important;
+  }
+
+  /* Не обрезать шаги */
+  li, p {
+    page-break-inside: avoid;
+  }
+}
