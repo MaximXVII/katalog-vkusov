@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadImage, MAX_FILE_SIZE_MB } from '@/lib/storage'
 
-// Максимальный размер тела запроса для Next.js
-export const config = {
-  api: { bodyParser: false },
-}
-
 /**
  * POST /api/admin/upload
  * Принимает: multipart/form-data с полем "file"
