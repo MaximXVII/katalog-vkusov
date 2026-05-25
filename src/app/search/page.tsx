@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { useSearch } from '@/hooks/useSearch'
@@ -7,7 +8,7 @@ import { RecipeCard } from '@/components/recipe/RecipeCard'
 import { SearchBar } from '@/components/ui/SearchBar'
 import { cn } from '@/lib/utils'
 
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialQ = searchParams.get('q') ?? ''
@@ -15,7 +16,6 @@ export default function SearchPage() {
   const { query, setQuery, results, isLoading, error } = useSearch()
   const initialized = useRef(false)
 
-  // При первом рендере подхватываем q из URL
   useEffect(() => {
     if (!initialized.current && initialQ) {
       setQuery(initialQ)
@@ -23,7 +23,6 @@ export default function SearchPage() {
     }
   }, [initialQ, setQuery])
 
-  // Синхронизируем URL с запросом (debounce уже в useSearch)
   useEffect(() => {
     if (!initialized.current) return
     const params = new URLSearchParams()
@@ -37,13 +36,11 @@ export default function SearchPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      {/* Заголовок */}
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">Поиск рецептов</h1>
         <p className="mt-2 text-gray-500">Введи название блюда, ингредиент или тег</p>
       </div>
 
-      {/* Большая строка поиска */}
       <SearchBar
         variant="full"
         defaultQuery={initialQ}
@@ -51,7 +48,6 @@ export default function SearchPage() {
         className="mb-10"
       />
 
-      {/* Состояния */}
       {isLoading && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -94,5 +90,24 @@ export default function SearchPage() {
         </>
       )}
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-5xl px-4 py-10">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">Поиск рецептов</h1>
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-64 rounded-2xl bg-gray-100 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    }>
+      <SearchPageContent />
+    </Suspense>
   )
 }
