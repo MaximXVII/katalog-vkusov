@@ -61,7 +61,7 @@ interface TagForSort {
   id: string
   slug: string
   name: string
-  imageUrl: string
+  imageUrl?: string
   _count: { recipes: number }
 }
 
