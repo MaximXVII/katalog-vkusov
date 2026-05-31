@@ -169,6 +169,7 @@ export function RecipeForm({ recipeId, initialData, availableTags }: RecipeFormP
   const [showStickers, setShowStickers] = useState(false)
   const [slugManual, setSlugManual] = useState(!!initialData?.slug)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const jsonImportRef = useRef<HTMLInputElement>(null)
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Автосохранение черновика в localStorage
@@ -439,6 +440,46 @@ export function RecipeForm({ recipeId, initialData, availableTags }: RecipeFormP
     setTimeout(() => { ta.focus(); ta.setSelectionRange(start + 2, end + 2) }, 0)
   }
 
+  // ── Импорт из JSON-файла ─────────────────────────────────
+  const importFromJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const json = JSON.parse(ev.target?.result as string) as Record<string, any>
+        const allTags = availableTags.flatMap((g) => g.tags)
+        const tagIds = ((json.tags ?? []) as string[])
+          .map((slug) => allTags.find((t) => t.slug === slug)?.id)
+          .filter(Boolean) as string[]
+        const steps: StepOrDivider[] = ((json.steps ?? []) as Record<string, string>[]).map((s) => {
+          if (s.type === 'divider') {
+            return { type: 'divider' as const, id: uid(), emoji: s.emoji ?? '🍽️', label: s.label ?? s.text ?? '' }
+          }
+          return { type: 'step' as const, id: uid(), text: s.text ?? '' }
+        })
+        setForm((prev) => ({
+          ...prev,
+          title: json.title ?? prev.title,
+          description: json.description ?? prev.description,
+          prepTime: json.prepTime != null ? String(json.prepTime) : prev.prepTime,
+          cookTime: json.cookTime != null ? String(json.cookTime) : prev.cookTime,
+          difficulty: json.difficulty ?? prev.difficulty,
+          isOriginal: json.isOriginal ?? prev.isOriginal,
+          published: json.published ?? prev.published,
+          ingredients: (json.ingredients as Ingredient[])?.length ? json.ingredients as Ingredient[] : prev.ingredients,
+          steps: steps.length ? steps : prev.steps,
+          tagIds,
+        }))
+      } catch {
+        alert('Ошибка чтения файла. Проверь формат JSON.')
+      }
+    }
+    reader.readAsText(file, 'utf-8')
+    e.target.value = ''
+  }
+
   // ── Счётчик шагов (только type=step) ─────────────────────
   let stepCounter = 0
 
@@ -458,6 +499,20 @@ export function RecipeForm({ recipeId, initialData, availableTags }: RecipeFormP
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => jsonImportRef.current?.click()}
+            className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100 transition-colors"
+          >
+            📥 Импорт JSON
+          </button>
+          <input
+            ref={jsonImportRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={importFromJson}
+          />
           <button
             type="button"
             onClick={applyTemplate}

@@ -1,0 +1,25 @@
+{
+  "title": "Название рецепта",
+  "description": "Краткое описание блюда — что это, откуда, почему вкусно.",
+  "prepTime": 15,
+  "cookTime": 30,
+  "difficulty": "easy",
+  "isOriginal": false,
+  "published": false,
+  "tags": ["kuritsa", "supy"],
+  "ingredients": [
+    { "name": "Название ингредиента", "amount": "200", "unit": "г" },
+    { "name": "Второй ингредиент", "amount": "2", "unit": "шт" },
+    { "name": "Третий ингредиент", "amount": "1", "unit": "ст.л." }
+  ],
+  "steps": [
+    { "type": "divider", "label": "Подготовка", "emoji": "🔪" },
+    { "text": "Первый шаг подготовки." },
+    { "text": "Второй шаг подготовки." },
+    { "type": "divider", "label": "Приготовление", "emoji": "🍳" },
+    { "text": "Первый шаг приготовления." },
+    { "text": "Второй шаг приготовления." },
+    { "type": "divider", "label": "Подача", "emoji": "🍽️" },
+    { "text": "Как подавать блюдо." }
+  ]
+}
