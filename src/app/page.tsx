@@ -117,7 +117,7 @@ export default async function HomePage() {
   return (
     <>
       <HomeHero />
-      <div className="mx-auto max-w-7xl px-4 py-12 space-y-16 sm:py-8 sm:space-y-10">
+      <div className="mx-auto max-w-7xl px-4 py-12 space-y-6 sm:py-8 sm:space-y-10">
 
         {/* Новинки */}
         {newRecipes.length > 0 && (
@@ -172,7 +172,7 @@ export default async function HomePage() {
                   На sm+ — сетка
                 */}
                 <div
-                  className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                  className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as any}
                 >
