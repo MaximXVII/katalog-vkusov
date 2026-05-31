@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, cache } from 'react'
 import Image from 'next/image'
 import type { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
@@ -22,6 +22,23 @@ import { PrintButton } from '@/components/recipe/PrintButton'
 import { CookingMode } from '@/components/recipe/CookingMode'
 import type { Ingredient, RecipeStep } from '@/types'
 
+// Кешируем запрос — generateMetadata и страница используют один и тот же вызов
+const getRecipe = cache(async (slug: string) => {
+  return prisma.recipe.findUnique({
+    where: { slug, published: true },
+    select: recipeFullSelect,
+  })
+})
+
+// Пребилд всех опубликованных рецептов при деплое → статические HTML с CDN
+export async function generateStaticParams() {
+  const recipes = await prisma.recipe.findMany({
+    where: { published: true },
+    select: { slug: true },
+  })
+  return recipes.map((r) => ({ slug: r.slug }))
+}
+
 export const revalidate = REVALIDATE_SECONDS
 
 interface Props {
@@ -38,11 +55,9 @@ function renderBold(text: string): React.ReactNode {
 
 // ── generateMetadata ──────────────────────────────────────────
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const recipe = await prisma.recipe.findUnique({
-    where: { slug: params.slug, published: true },
-    select: { title: true, description: true, imageUrl: true, slug: true },
-  })
-  if (!recipe) return { title: 'Рецепт не найден' }
+  const raw = await getRecipe(params.slug)
+  if (!raw) return { title: 'Рецепт не найден' }
+  const recipe = transformFull(raw)
 
   const url = `${SITE_URL}/recipe/${recipe.slug}`
   const images = recipe.imageUrl
@@ -153,10 +168,7 @@ function RecipeJsonLd({
 
 // ── Страница рецепта ──────────────────────────────────────────
 export default async function RecipePage({ params }: Props) {
-  const raw = await prisma.recipe.findUnique({
-    where: { slug: params.slug, published: true },
-    select: recipeFullSelect,
-  })
+  const raw = await getRecipe(params.slug)
   if (!raw) notFound()
 
   const recipe = transformFull(raw)

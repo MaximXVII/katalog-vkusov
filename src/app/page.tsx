@@ -117,7 +117,7 @@ export default async function HomePage() {
   return (
     <>
       <HomeHero />
-      <div className="mx-auto max-w-7xl px-4 py-12 space-y-16">
+      <div className="mx-auto max-w-7xl px-4 py-12 space-y-16 sm:py-8 sm:space-y-10">
 
         {/* Новинки */}
         {newRecipes.length > 0 && (
@@ -172,7 +172,7 @@ export default async function HomePage() {
                   На sm+ — сетка
                 */}
                 <div
-                  className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+                  className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as any}
                 >
@@ -181,7 +181,7 @@ export default async function HomePage() {
                       key={tag.id}
                       href={`/tag/${tag.slug}`}
                       className={cn(
-                        'group relative block overflow-hidden rounded-2xl border-2 shadow-sm',
+                        'group relative block overflow-hidden rounded-2xl border shadow-sm',
                         'aspect-[4/3]',
                         'w-40 flex-shrink-0 snap-start sm:w-auto',
                         'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
@@ -198,13 +198,12 @@ export default async function HomePage() {
                             sizes="(max-width: 640px) 160px, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
                             quality={70}
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-                          <div className="absolute inset-x-0 bottom-0 p-2.5">
-                            <p className="text-sm font-bold leading-tight text-white drop-shadow-sm line-clamp-2">
+                          <div className="absolute inset-x-0 bottom-0 bg-white/85 backdrop-blur-sm px-3 py-2">
+                            <p className="text-sm font-semibold leading-tight text-gray-900 line-clamp-1">
                               {tag.name}
                             </p>
                             {tag._count.recipes > 0 && (
-                              <span className="mt-1 inline-block rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                              <span className="text-[11px] text-gray-500">
                                 {tag._count.recipes} рец.
                               </span>
                             )}
@@ -212,20 +211,24 @@ export default async function HomePage() {
                         </>
                       ) : (
                         <div className={cn(
-                          'flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center',
+                          'flex h-full w-full flex-col',
                           palette.fallbackBg
                         )}>
-                          <span className="text-4xl leading-none" aria-hidden>
-                            {group.icon ?? '🍽️'}
-                          </span>
-                          <span className={cn('text-sm font-semibold leading-tight line-clamp-2', palette.fallbackText)}>
-                            {tag.name}
-                          </span>
-                          {tag._count.recipes > 0 && (
-                            <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', palette.badge)}>
-                              {tag._count.recipes} рец.
+                          <div className="flex flex-1 items-center justify-center">
+                            <span className="text-4xl leading-none" aria-hidden>
+                              {group.icon ?? '🍽️'}
                             </span>
-                          )}
+                          </div>
+                          <div className="bg-white/85 backdrop-blur-sm px-3 py-2">
+                            <p className={cn('text-sm font-semibold leading-tight line-clamp-1', palette.fallbackText)}>
+                              {tag.name}
+                            </p>
+                            {tag._count.recipes > 0 && (
+                              <span className="text-[11px] text-gray-500">
+                                {tag._count.recipes} рец.
+                              </span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </Link>

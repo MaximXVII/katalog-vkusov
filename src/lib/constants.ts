@@ -11,7 +11,7 @@ export const HOME_ROW_RECIPES_COUNT = 12
 export const BOOKMARK_STORAGE_KEY = 'moi-recepti-bookmarks'
 
 // ISR — перегенерация страниц каждые N секунд
-export const REVALIDATE_SECONDS = 60
+export const REVALIDATE_SECONDS = 3600
 
 // Новинки — рецепты добавленные за последние N дней
 export const NEW_RECIPES_DAYS = 7
