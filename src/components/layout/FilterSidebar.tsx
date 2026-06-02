@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useCallback } from 'react'
+import { useCallback, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { TAG_CATEGORY_LABELS } from '@/lib/utils'
 import type { TagCategory, TagCategorySlug } from '@/types'
@@ -23,10 +23,17 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
   const activeTags = (searchParams.get('tags') ?? '').split(',').filter(Boolean)
   const activeTime = searchParams.get('maxTime') ?? ''
   const activeOriginal = searchParams.get('original') === 'true'
+
+  const navigate = useCallback((url: string) => {
+    startTransition(() => {
+      router.push(url, { scroll: false })
+    })
+  }, [router])
 
   const toggleTag = useCallback((slug: string) => {
     const current = new Set(activeTags)
@@ -45,8 +52,8 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
       params.delete('tags')
     }
     params.delete('page')
-    router.push(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [activeTags, baseTagSlug, pathname, router, searchParams])
+    navigate(`${pathname}?${params.toString()}`)
+  }, [activeTags, baseTagSlug, pathname, navigate, searchParams])
 
   const toggleTime = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -56,8 +63,8 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
       params.set('maxTime', value)
     }
     params.delete('page')
-    router.push(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [activeTime, pathname, router, searchParams])
+    navigate(`${pathname}?${params.toString()}`)
+  }, [activeTime, pathname, navigate, searchParams])
 
   const toggleOriginal = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
@@ -67,8 +74,8 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
       params.set('original', 'true')
     }
     params.delete('page')
-    router.push(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [activeOriginal, pathname, router, searchParams])
+    navigate(`${pathname}?${params.toString()}`)
+  }, [activeOriginal, pathname, navigate, searchParams])
 
   const clearAll = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
@@ -76,8 +83,8 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
     params.delete('maxTime')
     params.delete('original')
     params.delete('page')
-    router.push(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [pathname, router, searchParams])
+    navigate(`${pathname}?${params.toString()}`)
+  }, [pathname, navigate, searchParams])
 
   const hasActiveFilters =
     activeTags.filter((s) => s !== baseTagSlug).length > 0 || !!activeTime || activeOriginal
@@ -85,21 +92,39 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
   const filteredCategories = categories.filter((cat) => cat.tags && cat.tags.length > 0)
 
   return (
-    <aside className={cn('w-full', className)}>
-      {/* Заголовок + кнопка сброса */}
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-900">Фильтры</h2>
-        {hasActiveFilters && (
-          <button
-            onClick={clearAll}
-            className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
-          >
-            Сбросить
-          </button>
-        )}
-      </div>
+    <aside className={cn('relative w-full', className)}>
+      {/* Индикатор загрузки */}
+      {isPending && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center pt-1">
+          <div className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white/90 px-3 py-1 shadow-sm">
+            <svg
+              className="h-3 w-3 animate-spin text-brand-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="text-xs font-medium text-gray-500">Загрузка...</span>
+          </div>
+        </div>
+      )}
 
-      <div className="space-y-6">
+      <div className={cn('space-y-6', isPending && 'pointer-events-none opacity-60')}>
+        {/* Заголовок + кнопка сброса */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-gray-900">Фильтры</h2>
+          {hasActiveFilters && (
+            <button
+              onClick={clearAll}
+              className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
+            >
+              Сбросить
+            </button>
+          )}
+        </div>
+
         {/* Фильтр по времени */}
         <div>
           <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
