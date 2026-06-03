@@ -1,16 +1,17 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+import { unstable_cache } from 'next/cache'
 import type { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 import { recipeCardSelect, transformCard, parsePagination, parseTagSlugs, paginated } from '@/lib/recipe-helpers'
-import { SITE_NAME, SITE_URL } from '@/lib/constants'
+import { SITE_NAME, SITE_URL, REVALIDATE_SECONDS } from '@/lib/constants'
 import { RecipeCard } from '@/components/recipe/RecipeCard'
 import { FilterSidebar } from '@/components/layout/FilterSidebar'
 import { MobileFilterDrawer } from '@/components/layout/MobileFilterDrawer'
 import { Pagination } from '@/components/ui/Pagination'
 import type { TagCategory } from '@/types'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 interface Props {
   params: { slug: string }
@@ -24,6 +25,12 @@ function shuffleArray<T>(arr: T[]): T[] {
     ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
+}
+
+// Pre-build все тег-страницы при деплое
+export async function generateStaticParams() {
+  const tags = await prisma.tag.findMany({ select: { slug: true } })
+  return tags.map((t) => ({ slug: t.slug }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -43,23 +50,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-async function getSidebarCategories(): Promise<TagCategory[]> {
-  const groups = await prisma.tagCategoryGroup.findMany({ orderBy: { displayOrder: 'asc' } })
-  const result = await Promise.all(
-    groups.map(async (group) => {
-      const tags = await prisma.tag.findMany({
-        where: { category: group.slug },
-        select: { id: true, slug: true, name: true, category: true },
-        orderBy: { name: 'asc' },
+// Sidebar-категории кешируем на час — они меняются только через админку
+const getSidebarCategories = unstable_cache(
+  async (): Promise<TagCategory[]> => {
+    const groups = await prisma.tagCategoryGroup.findMany({ orderBy: { displayOrder: 'asc' } })
+    const result = await Promise.all(
+      groups.map(async (group) => {
+        const tags = await prisma.tag.findMany({
+          where: { category: group.slug },
+          select: { id: true, slug: true, name: true, category: true },
+          orderBy: { name: 'asc' },
+        })
+        return {
+          id: group.id, name: group.name, slug: group.slug,
+          displayOrder: group.displayOrder, icon: group.icon ?? undefined, tags,
+        } satisfies TagCategory
       })
-      return {
-        id: group.id, name: group.name, slug: group.slug,
-        displayOrder: group.displayOrder, icon: group.icon ?? undefined, tags,
-      } satisfies TagCategory
-    })
-  )
-  return result.filter((c) => c.tags.length > 0)
-}
+    )
+    return result.filter((c) => c.tags.length > 0)
+  },
+  ['sidebar-categories'],
+  { revalidate: REVALIDATE_SECONDS }
+)
 
 export default async function TagPage({ params, searchParams }: Props) {
   const tag = await prisma.tag.findUnique({
@@ -115,7 +127,6 @@ export default async function TagPage({ params, searchParams }: Props) {
             {total === 0 ? 'Рецептов пока нет' : total === 1 ? '1 рецепт' : `${total} рецептов`}
           </p>
         </div>
-        {/* Кнопка фильтров на мобиле */}
         <Suspense>
           <MobileFilterDrawer categories={sidebarCategories} baseTagSlug={params.slug} />
         </Suspense>
