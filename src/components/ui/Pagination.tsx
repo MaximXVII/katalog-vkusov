@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useTransition } from 'react'
 import { cn } from '@/lib/utils'
 
 interface PaginationProps {
@@ -12,16 +13,18 @@ export function Pagination({ page, totalPages }: PaginationProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
   if (totalPages <= 1) return null
 
   const goTo = (p: number) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('page', String(p))
-    router.push(`${pathname}?${params.toString()}`, { scroll: true })
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`, { scroll: true })
+    })
   }
 
-  // Показываем максимум 5 кнопок вокруг текущей страницы
   const getPages = () => {
     const pages: (number | 'ellipsis')[] = []
     if (totalPages <= 7) {
@@ -41,11 +44,17 @@ export function Pagination({ page, totalPages }: PaginationProps) {
     'flex h-9 min-w-9 items-center justify-center rounded-lg px-2.5 text-sm font-medium transition-colors'
 
   return (
-    <nav aria-label="Пагинация" className="flex items-center justify-center gap-1 pt-8">
+    <nav
+      aria-label="Пагинация"
+      className={cn(
+        'flex items-center justify-center gap-1 pt-8',
+        isPending && 'opacity-60 pointer-events-none'
+      )}
+    >
       {/* Назад */}
       <button
         onClick={() => goTo(page - 1)}
-        disabled={page <= 1}
+        disabled={page <= 1 || isPending}
         aria-label="Предыдущая страница"
         className={cn(btnBase, 'border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed')}
       >
@@ -63,6 +72,7 @@ export function Pagination({ page, totalPages }: PaginationProps) {
           <button
             key={p}
             onClick={() => goTo(p)}
+            disabled={isPending}
             aria-current={p === page ? 'page' : undefined}
             className={cn(
               btnBase,
@@ -79,7 +89,7 @@ export function Pagination({ page, totalPages }: PaginationProps) {
       {/* Вперёд */}
       <button
         onClick={() => goTo(page + 1)}
-        disabled={page >= totalPages}
+        disabled={page >= totalPages || isPending}
         aria-label="Следующая страница"
         className={cn(btnBase, 'border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed')}
       >
