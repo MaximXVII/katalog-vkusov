@@ -3,11 +3,11 @@ import { Suspense } from 'react'
 import { unstable_cache } from 'next/cache'
 import type { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
-import { recipeCardSelect, transformCard, parsePagination, parseTagSlugs, paginated } from '@/lib/recipe-helpers'
+import { recipeCardSelect, transformCard, parsePagination, parseTagSlugs, parseExcludeSlugs, paginated } from '@/lib/recipe-helpers'
 import { SITE_NAME, SITE_URL, REVALIDATE_SECONDS } from '@/lib/constants'
-import { RecipeCard } from '@/components/recipe/RecipeCard'
 import { FilterSidebar } from '@/components/layout/FilterSidebar'
 import { MobileFilterDrawer } from '@/components/layout/MobileFilterDrawer'
+import { RecipeGridLazy } from '@/components/recipe/RecipeGridLazy'
 import { Pagination } from '@/components/ui/Pagination'
 import type { TagCategory } from '@/types'
 
@@ -15,7 +15,7 @@ export const revalidate = 60
 
 interface Props {
   params: { slug: string }
-  searchParams: { tags?: string; page?: string; difficulty?: string; maxTime?: string; original?: string }
+  searchParams: { tags?: string; page?: string; difficulty?: string; maxTime?: string; original?: string; exclude?: string }
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-// Sidebar-категории кешируем на час — они меняются только через админку
+// Sidebar-категории кешируем на час
 const getSidebarCategories = unstable_cache(
   async (): Promise<TagCategory[]> => {
     const groups = await prisma.tagCategoryGroup.findMany({ orderBy: { displayOrder: 'asc' } })
@@ -86,27 +86,47 @@ export default async function TagPage({ params, searchParams }: Props) {
   if (searchParams.difficulty) sp.set('difficulty', searchParams.difficulty)
   if (searchParams.maxTime)    sp.set('maxTime', searchParams.maxTime)
   if (searchParams.original)   sp.set('original', searchParams.original)
+  if (searchParams.exclude)    sp.set('exclude', searchParams.exclude)
 
   const { page, perPage, skip } = parsePagination(sp)
   const extraTagSlugs = parseTagSlugs(sp).filter((s) => s !== params.slug)
+  const excludeSlugs = parseExcludeSlugs(sp)
   const difficulty = (searchParams.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null
   const maxTime = searchParams.maxTime ? parseInt(searchParams.maxTime, 10) : null
   const originalOnly = searchParams.original === 'true'
+
+  const sidebarCategories = await getSidebarCategories()
+
+  // Группируем дополнительные теги по категориям для OR внутри / AND между
+  const tagsByCategory = new Map<string, string[]>()
+  for (const slug of extraTagSlugs) {
+    for (const cat of sidebarCategories) {
+      if (cat.tags.some((t) => t.slug === slug)) {
+        const existing = tagsByCategory.get(cat.slug) ?? []
+        tagsByCategory.set(cat.slug, [...existing, slug])
+        break
+      }
+    }
+  }
+
+  const tagAndConditions = Array.from(tagsByCategory.values()).map((slugs) =>
+    slugs.length === 1
+      ? { tags: { some: { tag: { slug: slugs[0] } } } }
+      : { OR: slugs.map((slug) => ({ tags: { some: { tag: { slug } } } })) }
+  )
 
   const where = {
     published: true,
     tags: { some: { tag: { slug: params.slug } } },
     ...(difficulty && { difficulty }),
     ...(originalOnly && { isOriginal: true }),
-    ...(extraTagSlugs.length > 0 && {
-      AND: extraTagSlugs.map((s) => ({ tags: { some: { tag: { slug: s } } } })),
+    ...(tagAndConditions.length > 0 && { AND: tagAndConditions }),
+    ...(excludeSlugs.length > 0 && {
+      NOT: excludeSlugs.map((slug) => ({ tags: { some: { tag: { slug } } } })),
     }),
   }
 
-  const [rawAll, sidebarCategories] = await Promise.all([
-    prisma.recipe.findMany({ where, select: recipeCardSelect, orderBy: { createdAt: 'desc' } }),
-    getSidebarCategories(),
-  ])
+  const rawAll = await prisma.recipe.findMany({ where, select: recipeCardSelect, orderBy: { createdAt: 'desc' } })
 
   const filtered = maxTime
     ? rawAll.filter((r) => (r.prepTime + r.cookTime) <= maxTime && (r.prepTime + r.cookTime) > 0)
@@ -148,11 +168,7 @@ export default async function TagPage({ params, searchParams }: Props) {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {recipes.map((recipe) => (
-                  <RecipeCard key={recipe.id} recipe={recipe} />
-                ))}
-              </div>
+              <RecipeGridLazy recipes={recipes} />
               <Suspense>
                 <Pagination page={page} totalPages={totalPages} />
               </Suspense>

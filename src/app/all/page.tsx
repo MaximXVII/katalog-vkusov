@@ -2,11 +2,11 @@ import { Suspense } from 'react'
 import { unstable_cache } from 'next/cache'
 import type { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
-import { recipeCardSelect, transformCard, parsePagination, parseTagSlugs, paginated } from '@/lib/recipe-helpers'
+import { recipeCardSelect, transformCard, parsePagination, parseTagSlugs, parseExcludeSlugs, paginated } from '@/lib/recipe-helpers'
 import { REVALIDATE_SECONDS } from '@/lib/constants'
-import { RecipeCard } from '@/components/recipe/RecipeCard'
 import { FilterSidebar } from '@/components/layout/FilterSidebar'
 import { MobileFilterDrawer } from '@/components/layout/MobileFilterDrawer'
+import { RecipeGridLazy } from '@/components/recipe/RecipeGridLazy'
 import { Pagination } from '@/components/ui/Pagination'
 import type { TagCategory } from '@/types'
 
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 }
 
 interface Props {
-  searchParams: { tags?: string; page?: string; difficulty?: string; maxTime?: string; original?: string }
+  searchParams: { tags?: string; page?: string; difficulty?: string; maxTime?: string; original?: string; exclude?: string }
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -30,7 +30,7 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a
 }
 
-// Sidebar-категории кешируем на час — они меняются только через админку
+// Sidebar-категории кешируем на час
 const getSidebarCategories = unstable_cache(
   async (): Promise<TagCategory[]> => {
     const groups = await prisma.tagCategoryGroup.findMany({ orderBy: { displayOrder: 'asc' } })
@@ -64,26 +64,52 @@ export default async function AllPage({ searchParams }: Props) {
   if (searchParams.difficulty) sp.set('difficulty', searchParams.difficulty)
   if (searchParams.maxTime)    sp.set('maxTime', searchParams.maxTime)
   if (searchParams.original)   sp.set('original', searchParams.original)
+  if (searchParams.exclude)    sp.set('exclude', searchParams.exclude)
 
   const { page, perPage, skip } = parsePagination(sp)
   const tagSlugs = parseTagSlugs(sp)
+  const excludeSlugs = parseExcludeSlugs(sp)
   const difficulty = (searchParams.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null
   const maxTime = searchParams.maxTime ? parseInt(searchParams.maxTime, 10) : null
   const originalOnly = searchParams.original === 'true'
+
+  const sidebarCategories = await getSidebarCategories()
+
+  // Группируем теги по категориям для OR внутри категории, AND между категориями
+  const tagsByCategory = new Map<string, string[]>()
+  for (const slug of tagSlugs) {
+    for (const cat of sidebarCategories) {
+      if (cat.tags.some((t) => t.slug === slug)) {
+        const existing = tagsByCategory.get(cat.slug) ?? []
+        tagsByCategory.set(cat.slug, [...existing, slug])
+        break
+      }
+    }
+  }
+
+  // DEBUG: remove after testing
+  if (tagSlugs.length > 0) {
+    console.log('[filter] tagSlugs:', tagSlugs)
+    console.log('[filter] tagsByCategory:', Object.fromEntries(tagsByCategory))
+  }
+
+  const tagAndConditions = Array.from(tagsByCategory.values()).map((slugs) =>
+    slugs.length === 1
+      ? { tags: { some: { tag: { slug: slugs[0] } } } }
+      : { OR: slugs.map((slug) => ({ tags: { some: { tag: { slug } } } })) }
+  )
 
   const where = {
     published: true,
     ...(difficulty && { difficulty }),
     ...(originalOnly && { isOriginal: true }),
-    ...(tagSlugs.length > 0 && {
-      AND: tagSlugs.map((slug) => ({ tags: { some: { tag: { slug } } } })),
+    ...(tagAndConditions.length > 0 && { AND: tagAndConditions }),
+    ...(excludeSlugs.length > 0 && {
+      NOT: excludeSlugs.map((slug) => ({ tags: { some: { tag: { slug } } } })),
     }),
   }
 
-  const [rawAll, sidebarCategories] = await Promise.all([
-    prisma.recipe.findMany({ where, select: recipeCardSelect, orderBy: { createdAt: 'desc' } }),
-    getSidebarCategories(),
-  ])
+  const rawAll = await prisma.recipe.findMany({ where, select: recipeCardSelect, orderBy: { createdAt: 'desc' } })
 
   const filtered = maxTime
     ? rawAll.filter((r) => (r.prepTime + r.cookTime) <= maxTime && (r.prepTime + r.cookTime) > 0)
@@ -93,7 +119,7 @@ export default async function AllPage({ searchParams }: Props) {
   const sliced = filtered.slice(skip, skip + perPage)
   const { totalPages } = paginated([], total, page, perPage)
   const recipes = shuffleArray(sliced.map(transformCard))
-  const hasFilters = tagSlugs.length > 0 || !!difficulty || !!maxTime || originalOnly
+  const hasFilters = tagSlugs.length > 0 || excludeSlugs.length > 0 || !!difficulty || !!maxTime || originalOnly
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -125,11 +151,7 @@ export default async function AllPage({ searchParams }: Props) {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {recipes.map((recipe) => (
-                  <RecipeCard key={recipe.id} recipe={recipe} />
-                ))}
-              </div>
+              <RecipeGridLazy recipes={recipes} />
               <Suspense>
                 <Pagination page={page} totalPages={totalPages} />
               </Suspense>

@@ -26,6 +26,7 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
   const [isPending, startTransition] = useTransition()
 
   const activeTags = (searchParams.get('tags') ?? '').split(',').filter(Boolean)
+  const excludedTags = (searchParams.get('exclude') ?? '').split(',').filter(Boolean)
   const activeTime = searchParams.get('maxTime') ?? ''
   const activeOriginal = searchParams.get('original') === 'true'
 
@@ -35,25 +36,37 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
     })
   }, [router])
 
+  // 3 состояния: neutral -> active (синий) -> excluded (красный) -> neutral
   const toggleTag = useCallback((slug: string) => {
-    const current = new Set(activeTags)
-    if (current.has(slug)) {
-      current.delete(slug)
-    } else {
-      current.add(slug)
-    }
-
     const params = new URLSearchParams(searchParams.toString())
-    const filtered = Array.from(current).filter((s) => s !== baseTagSlug)
 
-    if (filtered.length > 0) {
-      params.set('tags', filtered.join(','))
+    const currentActive = new Set(activeTags)
+    const currentExcluded = new Set(excludedTags)
+
+    if (currentExcluded.has(slug)) {
+      // excluded -> neutral
+      currentExcluded.delete(slug)
+    } else if (currentActive.has(slug)) {
+      // active -> excluded
+      currentActive.delete(slug)
+      currentExcluded.add(slug)
     } else {
-      params.delete('tags')
+      // neutral -> active
+      currentActive.add(slug)
     }
+
+    const activeFiltered = Array.from(currentActive).filter((s) => s !== baseTagSlug)
+    const excludedFiltered = Array.from(currentExcluded).filter((s) => s !== baseTagSlug)
+
+    if (activeFiltered.length > 0) params.set('tags', activeFiltered.join(','))
+    else params.delete('tags')
+
+    if (excludedFiltered.length > 0) params.set('exclude', excludedFiltered.join(','))
+    else params.delete('exclude')
+
     params.delete('page')
     navigate(`${pathname}?${params.toString()}`)
-  }, [activeTags, baseTagSlug, pathname, navigate, searchParams])
+  }, [activeTags, excludedTags, baseTagSlug, pathname, navigate, searchParams])
 
   const toggleTime = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -80,6 +93,7 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
   const clearAll = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
     params.delete('tags')
+    params.delete('exclude')
     params.delete('maxTime')
     params.delete('original')
     params.delete('page')
@@ -87,7 +101,10 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
   }, [pathname, navigate, searchParams])
 
   const hasActiveFilters =
-    activeTags.filter((s) => s !== baseTagSlug).length > 0 || !!activeTime || activeOriginal
+    activeTags.filter((s) => s !== baseTagSlug).length > 0 ||
+    excludedTags.length > 0 ||
+    !!activeTime ||
+    activeOriginal
 
   const filteredCategories = categories.filter((cat) => cat.tags && cat.tags.length > 0)
 
@@ -191,16 +208,20 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
               {category.tags.map((tag) => {
                 const isBase = tag.slug === baseTagSlug
                 const isActive = isBase || activeTags.includes(tag.slug)
+                const isExcluded = !isBase && excludedTags.includes(tag.slug)
 
                 return (
                   <button
                     key={tag.id}
                     onClick={() => !isBase && toggleTag(tag.slug)}
                     disabled={isBase}
+                    title={isExcluded ? 'Скрыть рецепты с этим тегом' : isActive && !isBase ? 'Нажми ещё раз, чтобы исключить' : undefined}
                     className={cn(
                       'rounded-full px-3 py-1 text-sm font-medium transition-all duration-150',
                       'border focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
-                      isActive
+                      isExcluded
+                        ? 'border-red-500 bg-red-500 text-white shadow-sm'
+                        : isActive
                         ? 'border-brand-500 bg-brand-500 text-white shadow-sm'
                         : 'border-gray-200 bg-white text-gray-700 hover:border-brand-300 hover:text-brand-600',
                       isBase && 'cursor-default opacity-80'

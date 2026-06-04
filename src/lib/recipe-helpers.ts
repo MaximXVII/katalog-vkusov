@@ -59,6 +59,12 @@ export function parseTagSlugs(searchParams: URLSearchParams): string[] {
   return raw.split(',').map((s) => s.trim()).filter(Boolean)
 }
 
+export function parseExcludeSlugs(searchParams: URLSearchParams): string[] {
+  const raw = searchParams.get('exclude')
+  if (!raw) return []
+  return raw.split(',').map((s) => s.trim()).filter(Boolean)
+}
+
 // Стандартные ответы
 export function paginated<T>(data: T[], total: number, page: number, perPage: number) {
   return {
