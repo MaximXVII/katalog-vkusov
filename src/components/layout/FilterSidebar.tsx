@@ -8,7 +8,6 @@ import type { TagCategory, TagCategorySlug } from '@/types'
 
 interface FilterSidebarProps {
   categories: TagCategory[]
-  /** Текущий слаг тега страницы (всегда выбран, нельзя снять) */
   baseTagSlug?: string
   className?: string
 }
@@ -36,22 +35,17 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
     })
   }, [router])
 
-  // 3 состояния: neutral -> active (синий) -> excluded (красный) -> neutral
   const toggleTag = useCallback((slug: string) => {
     const params = new URLSearchParams(searchParams.toString())
-
     const currentActive = new Set(activeTags)
     const currentExcluded = new Set(excludedTags)
 
     if (currentExcluded.has(slug)) {
-      // excluded -> neutral
       currentExcluded.delete(slug)
     } else if (currentActive.has(slug)) {
-      // active -> excluded
       currentActive.delete(slug)
       currentExcluded.add(slug)
     } else {
-      // neutral -> active
       currentActive.add(slug)
     }
 
@@ -60,32 +54,24 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
 
     if (activeFiltered.length > 0) params.set('tags', activeFiltered.join(','))
     else params.delete('tags')
-
     if (excludedFiltered.length > 0) params.set('exclude', excludedFiltered.join(','))
     else params.delete('exclude')
-
     params.delete('page')
     navigate(`${pathname}?${params.toString()}`)
   }, [activeTags, excludedTags, baseTagSlug, pathname, navigate, searchParams])
 
   const toggleTime = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (activeTime === value) {
-      params.delete('maxTime')
-    } else {
-      params.set('maxTime', value)
-    }
+    if (activeTime === value) params.delete('maxTime')
+    else params.set('maxTime', value)
     params.delete('page')
     navigate(`${pathname}?${params.toString()}`)
   }, [activeTime, pathname, navigate, searchParams])
 
   const toggleOriginal = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
-    if (activeOriginal) {
-      params.delete('original')
-    } else {
-      params.set('original', 'true')
-    }
+    if (activeOriginal) params.delete('original')
+    else params.set('original', 'true')
     params.delete('page')
     navigate(`${pathname}?${params.toString()}`)
   }, [activeOriginal, pathname, navigate, searchParams])
@@ -102,24 +88,17 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
 
   const hasActiveFilters =
     activeTags.filter((s) => s !== baseTagSlug).length > 0 ||
-    excludedTags.length > 0 ||
-    !!activeTime ||
-    activeOriginal
+    excludedTags.length > 0 || !!activeTime || activeOriginal
 
   const filteredCategories = categories.filter((cat) => cat.tags && cat.tags.length > 0)
 
   return (
     <aside className={cn('relative w-full', className)}>
-      {/* Индикатор загрузки */}
+      {/* Индикатор загрузки — не блокирует клики */}
       {isPending && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center pt-1">
+        <div className="pointer-events-none absolute top-0 right-0 z-10">
           <div className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white/90 px-3 py-1 shadow-sm">
-            <svg
-              className="h-3 w-3 animate-spin text-brand-500"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
+            <svg className="h-3 w-3 animate-spin text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
@@ -128,15 +107,12 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
         </div>
       )}
 
-      <div className={cn('space-y-6', isPending && 'pointer-events-none opacity-60')}>
+      <div className="space-y-6">
         {/* Заголовок + кнопка сброса */}
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-gray-900">Фильтры</h2>
           {hasActiveFilters && (
-            <button
-              onClick={clearAll}
-              className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
-            >
+            <button onClick={clearAll} className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors">
               Сбросить
             </button>
           )}
@@ -144,9 +120,7 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
 
         {/* Фильтр по времени */}
         <div>
-          <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Время
-          </h3>
+          <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Время</h3>
           <div className="flex flex-wrap gap-2">
             {TIME_OPTIONS.map((opt) => (
               <button
@@ -168,9 +142,7 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
 
         {/* Фильтр: только оригинальные */}
         <div>
-          <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Оригинальность
-          </h3>
+          <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Оригинальность</h3>
           <button
             onClick={toggleOriginal}
             className={cn(
@@ -181,17 +153,9 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
                 : 'border-gray-200 bg-white text-gray-700 hover:border-brand-300 hover:text-brand-600'
             )}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width={14}
-              height={14}
-              viewBox="0 0 24 24"
-              fill={activeOriginal ? 'currentColor' : 'none'}
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" width={14} height={14} viewBox="0 0 24 24"
+              fill={activeOriginal ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2}
+              strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
             Только оригинальные
@@ -209,13 +173,11 @@ export function FilterSidebar({ categories, baseTagSlug, className }: FilterSide
                 const isBase = tag.slug === baseTagSlug
                 const isActive = isBase || activeTags.includes(tag.slug)
                 const isExcluded = !isBase && excludedTags.includes(tag.slug)
-
                 return (
                   <button
                     key={tag.id}
                     onClick={() => !isBase && toggleTag(tag.slug)}
                     disabled={isBase}
-                    title={isExcluded ? 'Скрыть рецепты с этим тегом' : isActive && !isBase ? 'Нажми ещё раз, чтобы исключить' : undefined}
                     className={cn(
                       'rounded-full px-3 py-1 text-sm font-medium transition-all duration-150',
                       'border focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
