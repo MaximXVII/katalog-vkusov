@@ -5,10 +5,10 @@ import { RandomRecipeButton } from '@/components/ui/RandomRecipeButton'
 import { RecipeCard } from '@/components/recipe/RecipeCard'
 import { HorizontalScroll } from '@/components/recipe/HorizontalScroll'
 import Link from 'next/link'
-import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import type { Metadata } from 'next'
 import { recipeCardSelect, transformCard } from '@/lib/recipe-helpers'
+import { RecipeGridLazy } from '@/components/recipe/RecipeGridLazy'
 
 export const revalidate = REVALIDATE_SECONDS
 
@@ -28,12 +28,12 @@ export const metadata: Metadata = {
 }
 
 const CATEGORY_PALETTES = [
-  { border: 'border-emerald-400', fallbackBg: 'bg-emerald-50', fallbackText: 'text-emerald-800', badge: 'bg-emerald-500/80 text-white' },
-  { border: 'border-sky-400',     fallbackBg: 'bg-sky-50',     fallbackText: 'text-sky-800',     badge: 'bg-sky-500/80 text-white' },
-  { border: 'border-violet-400',  fallbackBg: 'bg-violet-50',  fallbackText: 'text-violet-800',  badge: 'bg-violet-500/80 text-white' },
-  { border: 'border-rose-400',    fallbackBg: 'bg-rose-50',    fallbackText: 'text-rose-800',    badge: 'bg-rose-500/80 text-white' },
-  { border: 'border-amber-400',   fallbackBg: 'bg-amber-50',   fallbackText: 'text-amber-800',   badge: 'bg-amber-500/80 text-white' },
-  { border: 'border-teal-400',    fallbackBg: 'bg-teal-50',    fallbackText: 'text-teal-800',    badge: 'bg-teal-500/80 text-white' },
+  { fallbackBg: 'bg-emerald-50' },
+  { fallbackBg: 'bg-sky-50' },
+  { fallbackBg: 'bg-violet-50' },
+  { fallbackBg: 'bg-rose-50' },
+  { fallbackBg: 'bg-amber-50' },
+  { fallbackBg: 'bg-teal-50' },
 ]
 
 // Вспомогательная нормализация
@@ -111,8 +111,27 @@ async function getNewRecipes() {
   return raw.map(transformCard)
 }
 
+async function getAllRecipesShuffled() {
+  const raw = await prisma.recipe.findMany({
+    where: { published: true },
+    select: recipeCardSelect,
+    orderBy: { createdAt: 'desc' },
+  })
+  const cards = raw.map(transformCard)
+  // Fisher-Yates — свежее перемешивание при каждой ISR-перегенерации страницы
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[cards[i], cards[j]] = [cards[j], cards[i]]
+  }
+  return cards
+}
+
 export default async function HomePage() {
-  const [categories, newRecipes] = await Promise.all([getTagCategories(), getNewRecipes()])
+  const [categories, newRecipes, allRecipes] = await Promise.all([
+    getTagCategories(),
+    getNewRecipes(),
+    getAllRecipesShuffled(),
+  ])
 
   return (
     <>
@@ -167,73 +186,46 @@ export default async function HomePage() {
                     {group.name}
                   </h2>
                 </div>
-                {/*
-                  На мобильных — Netflix-скролл горизонтальный
-                  На sm+ — сетка
-                */}
-                <div
-                  className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as any}
-                >
+                <HorizontalScroll>
                   {tags.map((tag) => (
                     <Link
                       key={tag.id}
                       href={`/tag/${tag.slug}`}
                       className={cn(
-                        'group relative block overflow-hidden rounded-2xl border shadow-sm',
-                        'aspect-[4/3]',
-                        'w-40 flex-shrink-0 snap-start sm:w-auto',
-                        'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
-                        palette.border
+                        'group flex min-w-[112px] flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-sm',
+                        'transition-all duration-300 hover:-translate-y-1 hover:shadow-lg'
                       )}
                     >
-                      {tag.imageUrl ? (
-                        <>
-                          <Image
+                      <div className="flex h-32 items-center justify-center overflow-hidden bg-gray-50 sm:h-36">
+                        {tag.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
                             src={tag.imageUrl}
                             alt={tag.name}
-                            fill
-                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                            sizes="(max-width: 640px) 160px, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                            quality={70}
+                            loading="lazy"
+                            className="h-full w-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           />
-                          <div className="absolute inset-x-0 bottom-0 bg-white/85 backdrop-blur-sm px-3 py-2">
-                            <p className="text-sm font-semibold leading-tight text-gray-900 line-clamp-1">
-                              {tag.name}
-                            </p>
-                            {tag._count.recipes > 0 && (
-                              <span className="text-[11px] text-gray-500">
-                                {tag._count.recipes} рец.
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <div className={cn(
-                          'flex h-full w-full flex-col',
-                          palette.fallbackBg
-                        )}>
-                          <div className="flex flex-1 items-center justify-center">
+                        ) : (
+                          <div className={cn('flex h-full w-32 items-center justify-center', palette.fallbackBg)}>
                             <span className="text-4xl leading-none" aria-hidden>
                               {group.icon ?? '🍽️'}
                             </span>
                           </div>
-                          <div className="bg-white/85 backdrop-blur-sm px-3 py-2">
-                            <p className={cn('text-sm font-semibold leading-tight line-clamp-1', palette.fallbackText)}>
-                              {tag.name}
-                            </p>
-                            {tag._count.recipes > 0 && (
-                              <span className="text-[11px] text-gray-500">
-                                {tag._count.recipes} рец.
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col gap-0.5 p-3.5">
+                        <p className="text-sm font-semibold leading-snug text-gray-900 line-clamp-1 transition-colors group-hover:text-brand-600">
+                          {tag.name}
+                        </p>
+                        {tag._count.recipes > 0 && (
+                          <span className="text-xs text-gray-500">
+                            {tag._count.recipes} рец.
+                          </span>
+                        )}
+                      </div>
                     </Link>
                   ))}
-                </div>
+                </HorizontalScroll>
               </section>
             )
           })
@@ -253,6 +245,21 @@ export default async function HomePage() {
               </div>
               <RandomRecipeButton />
             </div>
+          </section>
+        )}
+
+        {/* Листай дальше — все рецепты перемешаны, без фильтров, бесконечная подгрузка */}
+        {allRecipes.length > 0 && (
+          <section>
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">
+                Листай дальше
+              </h2>
+              <Link href="/all" className="text-sm font-medium text-brand-600 hover:text-brand-700 hover:underline transition-colors">
+                С фильтрами →
+              </Link>
+            </div>
+            <RecipeGridLazy recipes={allRecipes} />
           </section>
         )}
       </div>

@@ -1,5 +1,16 @@
 export const SITE_NAME = 'Каталог Вкусов'
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
+// Текущий продакшен-адрес (Vercel-поддомен). Когда подключите купленный домен —
+// либо обновите эту строку, либо (предпочтительно) задайте переменную окружения
+// NEXT_PUBLIC_SITE_URL в настройках проекта на Vercel — она имеет приоритет.
+const PRODUCTION_FALLBACK_URL = 'https://katalog-vkusov.vercel.app'
+
+// NODE_ENV инлайнится Next.js на этапе сборки и безопасен в клиентских компонентах,
+// в отличие от других process.env.* переменных без префикса NEXT_PUBLIC_.
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.NODE_ENV === 'production' ? PRODUCTION_FALLBACK_URL : 'http://localhost:3000')
+
 export const TELEGRAM_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL ?? 'https://t.me/+s7bnJzXlDw04NmUy'
 
 // Пагинация
